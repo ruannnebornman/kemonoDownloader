@@ -9,19 +9,20 @@ Usage:
 
 import argparse
 import sys
+import asyncio
 import logging
 from typing import List, Dict
 
 from config import DOWNLOAD_DIR, LOG_FILE, LOG_LEVEL
 from scraper_selenium import KemonoSeleniumScraper
-from downloader import ImageDownloader
+from downloader_async import AsyncImageDownloader
 from utils import setup_logging, create_directory
 
 logger = logging.getLogger(__name__)
 
 
-def main():
-    """Main entry point"""
+async def async_main(args):
+    """Async main function"""
     parser = argparse.ArgumentParser(
         description='Download all images from Kemono.cr user posts'
     )
@@ -76,7 +77,7 @@ def main():
     try:
         # Initialize scraper and downloader
         scraper = KemonoSeleniumScraper(headless=True)
-        downloader = ImageDownloader(args.output)
+        downloader = AsyncImageDownloader(args.output)
         
         # Phase 1: Get all post URLs
         logger.info("\n" + "="*60)
@@ -117,10 +118,10 @@ def main():
         
         # Phase 3: Download all images
         logger.info("\n" + "="*60)
-        logger.info("PHASE 3: Downloading images")
+        logger.info("PHASE 3: Downloading images (async with rate limiting)")
         logger.info("="*60)
         
-        downloader.download_user_images(args.user_id, posts_data)
+        await downloader.download_user_images(args.user_id, posts_data)
         
         # Print summary
         downloader.print_summary()
@@ -138,6 +139,47 @@ def main():
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         sys.exit(1)
+
+
+def main():
+    """Entry point that runs async main"""
+    parser = argparse.ArgumentParser(
+        description='Download all images from Kemono.cr user posts'
+    )
+    parser.add_argument(
+        '--user-id',
+        required=True,
+        help='User ID from Kemono.cr (e.g., 167293545)'
+    )
+    parser.add_argument(
+        '--output',
+        default=DOWNLOAD_DIR,
+        help=f'Output directory (default: {DOWNLOAD_DIR})'
+    )
+    parser.add_argument(
+        '--log-file',
+        default=LOG_FILE,
+        help='Log file path'
+    )
+    parser.add_argument(
+        '--log-level',
+        default=LOG_LEVEL,
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+        help='Logging level'
+    )
+    parser.add_argument(
+        '--no-skip-existing',
+        action='store_true',
+        help='Re-download existing files'
+    )
+    
+    args = parser.parse_args()
+    
+    # Setup logging
+    setup_logging(args.log_file, args.log_level)
+    
+    # Run async main
+    asyncio.run(async_main(args))
 
 
 if __name__ == '__main__':

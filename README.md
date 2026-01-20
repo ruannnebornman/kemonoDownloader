@@ -56,16 +56,20 @@ downloads/
 - ✅ Recursive download of all posts for a user
 - ✅ Automatic pagination handling
 - ✅ Organized folder structure (user/post/images)
+- ✅ **Async downloads with smart rate limiting** (no DDoS!)
 - ✅ Skip already downloaded files
 - ✅ Progress bars with ETA
 - ✅ Retry logic for failed downloads
 - ✅ Detailed logging
 - ✅ Download statistics summary
+- ✅ Selenium-based scraping (handles JavaScript)
 
 ## Configuration
 
 Edit `config.py` to customize:
-- Request delays
+- Request delays and rate limiting
+- Max concurrent downloads (default: 3)
+- Batch size and pauses
 - Retry attempts
 - Download directory
 - User agent
