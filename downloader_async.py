@@ -93,7 +93,7 @@ class AsyncImageDownloader:
             # Download with progress bar and batching
             await self._download_with_batches(tasks)
         
-        return self.get_stats()
+        return self.stats['downloaded']
     
     async def _download_with_batches(self, tasks: List):
         """

@@ -23,40 +23,6 @@ logger = logging.getLogger(__name__)
 
 async def async_main(args):
     """Async main function"""
-    parser = argparse.ArgumentParser(
-        description='Download all images from Kemono.cr user posts'
-    )
-    parser.add_argument(
-        '--user-id',
-        required=True,
-        help='User ID from Kemono.cr (e.g., 167293545)'
-    )
-    parser.add_argument(
-        '--output',
-        default=DOWNLOAD_DIR,
-        help=f'Output directory (default: {DOWNLOAD_DIR})'
-    )
-    parser.add_argument(
-        '--log-file',
-        default=LOG_FILE,
-        help='Log file path'
-    )
-    parser.add_argument(
-        '--log-level',
-        default=LOG_LEVEL,
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        help='Logging level'
-    )
-    parser.add_argument(
-        '--no-skip-existing',
-        action='store_true',
-        help='Re-download existing files'
-    )
-    
-    args = parser.parse_args()
-    
-    # Setup logging
-    setup_logging(args.log_file, args.log_level)
     
     logger.info("="*60)
     logger.info("Kemono Downloader Starting")
@@ -91,37 +57,46 @@ async def async_main(args):
         
         logger.info(f"Found {len(post_urls)} posts")
         
-        # Phase 2: Get images from each post
+        # Apply max-posts limit if specified
+        if args.max_posts and len(post_urls) > args.max_posts:
+            logger.info(f"Limiting to first {args.max_posts} posts")
+            post_urls = post_urls[:args.max_posts]
+        
+        # Process posts one at a time: extract images → download → next post
         logger.info("\n" + "="*60)
-        logger.info("PHASE 2: Extracting image URLs from posts")
+        logger.info("PHASE 2: Processing posts sequentially")
         logger.info("="*60)
         
-        posts_data = []
+        total_downloaded = 0
         for idx, post_url in enumerate(post_urls, 1):
-            logger.info(f"Processing post {idx}/{len(post_urls)}")
+            logger.info(f"\n--- Processing post {idx}/{len(post_urls)} ---")
+            print(f"\nPost {idx}/{len(post_urls)}: {post_url}")
             
+            # Get post info and images
             post_info = scraper.get_post_info(post_url)
             images = scraper.get_post_images(post_url)
             
-            if images:
-                posts_data.append({
-                    'post_id': post_info['id'],
-                    'images': images
-                })
+            if not images:
+                logger.info(f"No images found in post {post_info['id']}")
+                print(f"  No images found, skipping...")
+                continue
+            
+            logger.info(f"Found {len(images)} images in post {post_info['id']}")
+            print(f"  Found {len(images)} images, downloading...")
+            
+            # Download images for this post
+            posts_data = [{
+                'post_id': post_info['id'],
+                'images': images
+            }]
+            
+            downloaded = await downloader.download_user_images(args.user_id, posts_data)
+            total_downloaded += downloaded
+            
+            logger.info(f"Downloaded {downloaded} images from post {post_info['id']}")
+            print(f"  Downloaded {downloaded} images")
         
-        total_images = sum(len(p['images']) for p in posts_data)
-        logger.info(f"Found {total_images} images across {len(posts_data)} posts")
-        
-        if total_images == 0:
-            logger.warning("No images found to download")
-            sys.exit(0)
-        
-        # Phase 3: Download all images
-        logger.info("\n" + "="*60)
-        logger.info("PHASE 3: Downloading images (async with rate limiting)")
-        logger.info("="*60)
-        
-        await downloader.download_user_images(args.user_id, posts_data)
+        logger.info(f"\nTotal images downloaded: {total_downloaded}")
         
         # Print summary
         downloader.print_summary()
@@ -171,6 +146,12 @@ def main():
         '--no-skip-existing',
         action='store_true',
         help='Re-download existing files'
+    )
+    parser.add_argument(
+        '--max-posts',
+        type=int,
+        default=None,
+        help='Maximum number of posts to process (useful for testing, default: all)'
     )
     
     args = parser.parse_args()
