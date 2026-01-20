@@ -64,14 +64,10 @@ class KemonoSeleniumScraper:
         offset = 0
         page = 1
         
-        logger.info(f"Fetching posts for user {user_id}")
-        
         while True:
             url = f"{self.base_url}/patreon/user/{user_id}"
             if offset > 0:
                 url += f"?o={offset}"
-            
-            logger.info(f"Fetching page {page} (offset: {offset})")
             
             try:
                 html = self._fetch_page(url)
@@ -89,8 +85,6 @@ class KemonoSeleniumScraper:
                 new_posts = [p for p in posts if p not in all_posts]
                 all_posts.extend(new_posts)
                 
-                logger.info(f"Found {len(new_posts)} new posts (total: {len(all_posts)})")
-                
                 # Check for next page
                 next_offset = self.parser.get_pagination_offset(html, offset)
                 if next_offset is None or next_offset == offset:
@@ -104,7 +98,6 @@ class KemonoSeleniumScraper:
                 logger.error(f"Error fetching posts page {page}: {e}")
                 break
         
-        logger.info(f"Total posts found: {len(all_posts)}")
         return all_posts
     
     def get_post_images(self, post_url: str) -> List[str]:
@@ -117,15 +110,12 @@ class KemonoSeleniumScraper:
         Returns:
             List of image URLs
         """
-        logger.info(f"Fetching images from post: {post_url}")
-        
         try:
             html = self._fetch_page(post_url)
             if not html:
                 return []
             
             images = self.parser.parse_post_images(html)
-            logger.info(f"Found {len(images)} images in post")
             return images
             
         except Exception as e:
@@ -168,7 +158,7 @@ class KemonoSeleniumScraper:
                     EC.presence_of_element_located((By.CSS_SELECTOR, wait_for_selector))
                 )
             except TimeoutException:
-                logger.warning(f"Timeout waiting for {wait_for_selector} on {url}")
+                logger.debug(f"Timeout waiting for {wait_for_selector} on {url}")
                 # Continue anyway, might still have content
             
             # Small delay to ensure everything is loaded

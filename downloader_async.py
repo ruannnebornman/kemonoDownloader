@@ -52,16 +52,9 @@ class AsyncImageDownloader:
         user_dir = os.path.join(self.output_dir, f"user_{user_id}")
         create_directory(user_dir)
         
-        logger.info(f"Starting async download for user {user_id}")
-        logger.info(f"Total posts: {len(posts_data)}")
-        
         # Count total images
         total_images = sum(len(post['images']) for post in posts_data)
         self.stats['total'] = total_images
-        
-        logger.info(f"Total images to download: {total_images}")
-        logger.info(f"Max concurrent downloads: {MAX_CONCURRENT_DOWNLOADS}")
-        logger.info(f"Rate limit: {RATE_LIMIT_DELAY}s between requests")
         
         # Create async session
         connector = aiohttp.TCPConnector(limit=MAX_CONCURRENT_DOWNLOADS)

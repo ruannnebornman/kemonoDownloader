@@ -40,7 +40,6 @@ class KemonoParser:
                     if full_url not in post_urls:
                         post_urls.append(full_url)
         
-        logger.info(f"Found {len(post_urls)} post URLs")
         return post_urls
     
     def extract_post_id(self, url: str) -> Optional[str]:
@@ -80,7 +79,6 @@ class KemonoParser:
                 if href not in image_urls:
                     image_urls.append(href)
         
-        logger.info(f"Found {len(image_urls)} image URLs in post")
         return image_urls
     
     def _is_content_image(self, url: str) -> bool:

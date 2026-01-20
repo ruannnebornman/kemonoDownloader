@@ -24,11 +24,12 @@ logger = logging.getLogger(__name__)
 async def async_main(args):
     """Async main function"""
     
-    logger.info("="*60)
-    logger.info("Kemono Downloader Starting")
-    logger.info("="*60)
-    logger.info(f"User ID: {args.user_id}")
-    logger.info(f"Output directory: {args.output}")
+    print("="*60)
+    print("Kemono Downloader")
+    print("="*60)
+    print(f"User ID: {args.user_id}")
+    print(f"Output: {args.output}")
+    logger.info(f"Starting download for user {args.user_id}")
     
     # Update config if needed
     if args.no_skip_existing:
@@ -46,16 +47,16 @@ async def async_main(args):
         downloader = AsyncImageDownloader(args.output)
         
         # Phase 1: Get all post URLs
-        logger.info("\n" + "="*60)
-        logger.info("PHASE 1: Fetching post URLs")
-        logger.info("="*60)
+        print("\n" + "="*60)
+        print("PHASE 1: Fetching post URLs")
+        print("="*60 + "\n")
         post_urls = scraper.get_user_posts(args.user_id)
         
         if not post_urls:
             logger.error("No posts found for this user")
             sys.exit(1)
         
-        logger.info(f"Found {len(post_urls)} posts")
+        print(f"Found {len(post_urls)} posts")
         
         # Apply max-posts limit if specified
         if args.max_posts and len(post_urls) > args.max_posts:
@@ -63,9 +64,9 @@ async def async_main(args):
             post_urls = post_urls[:args.max_posts]
         
         # Phase 2: Extract images from all posts concurrently (in batches)
-        logger.info("\n" + "="*60)
-        logger.info("PHASE 2: Extracting images from posts (parallel batches)")
-        logger.info("="*60)
+        print("\n" + "="*60)
+        print("PHASE 2: Extracting images from posts")
+        print("="*60 + "\n")
         
         from concurrent.futures import ThreadPoolExecutor
         import concurrent.futures
@@ -130,11 +131,8 @@ async def async_main(args):
                     logger.error(f"Error getting result for post {idx}: {e}")
         
         print()  # New line after progress
-        print()  # New line after progress
         
         total_images = sum(len(p['images']) for p in posts_data)
-        
-        logger.info(f"Found {total_images} images across {len(posts_data)} posts")
         print(f"Found {total_images} images across {len(posts_data)} posts")
         
         if total_images == 0:
@@ -142,19 +140,18 @@ async def async_main(args):
             return
         
         # Phase 3: Download all images
-        logger.info("\n" + "="*60)
-        logger.info("PHASE 3: Downloading images (async with rate limiting)")
-        logger.info("="*60)
+        print("\n" + "="*60)
+        print("PHASE 3: Downloading images")
+        print("="*60 + "\n")
         
         total_downloaded = await downloader.download_user_images(args.user_id, posts_data)
-        logger.info(f"\nTotal images downloaded: {total_downloaded}")
         
         # Print summary
+        print()
         downloader.print_summary()
-        
-        logger.info("\n" + "="*60)
-        logger.info("Download Complete!")
-        logger.info("="*60)
+        print("\n" + "="*60)
+        print("Download Complete!")
+        print("="*60)
         
         # Cleanup
         scraper.close()
@@ -189,9 +186,14 @@ def main():
     )
     parser.add_argument(
         '--log-level',
-        default=LOG_LEVEL,
+        default=None,
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        help='Logging level'
+        help='Logging level (overrides --verbose)'
+    )
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Enable verbose logging (shows timeouts, detailed progress)'
     )
     parser.add_argument(
         '--no-skip-existing',
@@ -207,8 +209,15 @@ def main():
     
     args = parser.parse_args()
     
-    # Setup logging
-    setup_logging(args.log_file, args.log_level)
+    # Setup logging - default to ERROR unless verbose or log-level specified
+    if args.log_level:
+        log_level = args.log_level
+    elif args.verbose:
+        log_level = 'INFO'
+    else:
+        log_level = 'ERROR'
+    
+    setup_logging(args.log_file, log_level)
     
     # Run async main
     asyncio.run(async_main(args))
