@@ -62,31 +62,76 @@ async def async_main(args):
             logger.info(f"Limiting to first {args.max_posts} posts")
             post_urls = post_urls[:args.max_posts]
         
-        # Phase 2: Extract images from all posts concurrently
+        # Phase 2: Extract images from all posts concurrently (in batches)
         logger.info("\n" + "="*60)
-        logger.info("PHASE 2: Extracting images from posts (concurrent)")
+        logger.info("PHASE 2: Extracting images from posts (parallel batches)")
         logger.info("="*60)
         
-        async def process_post(idx, post_url):
-            """Process a single post to extract images"""
-            logger.info(f"Processing post {idx}/{len(post_urls)}: {post_url}")
-            post_info = scraper.get_post_info(post_url)
-            images = scraper.get_post_images(post_url)
-            
-            if images:
-                return {
-                    'post_id': post_info['id'],
-                    'images': images
-                }
+        from concurrent.futures import ThreadPoolExecutor
+        import concurrent.futures
+        import threading
+        
+        # Thread-local storage for selenium drivers
+        thread_local = threading.local()
+        
+        def get_thread_scraper():
+            """Get or create a scraper for this thread"""
+            if not hasattr(thread_local, "scraper"):
+                thread_local.scraper = KemonoSeleniumScraper(headless=True)
+            return thread_local.scraper
+        
+        def process_post_sync(idx, post_url):
+            """Process a single post to extract images (runs in thread)"""
+            try:
+                thread_scraper = get_thread_scraper()
+                post_info = thread_scraper.get_post_info(post_url)
+                images = thread_scraper.get_post_images(post_url)
+                
+                if images:
+                    return {
+                        'post_id': post_info['id'],
+                        'images': images
+                    }
+            except Exception as e:
+                logger.error(f"Error processing post {idx}: {e}")
             return None
         
-        # Process posts concurrently
-        print(f"\nExtracting images from {len(post_urls)} posts concurrently...")
-        tasks = [process_post(idx, url) for idx, url in enumerate(post_urls, 1)]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        def cleanup_thread_scraper():
+            """Cleanup scraper for this thread"""
+            if hasattr(thread_local, "scraper"):
+                try:
+                    thread_local.scraper.close()
+                except:
+                    pass
         
-        # Filter out None and exceptions
-        posts_data = [r for r in results if r and not isinstance(r, Exception)]
+        # Process posts in parallel using thread pool (5 threads for stability)
+        print(f"\nExtracting images from {len(post_urls)} posts (5 threads)...")
+        posts_data = []
+        
+        with ThreadPoolExecutor(max_workers=5, initializer=lambda: None) as executor:
+            # Submit all tasks
+            future_to_post = {
+                executor.submit(process_post_sync, idx, url): (idx, url) 
+                for idx, url in enumerate(post_urls, 1)
+            }
+            
+            # Process as they complete
+            completed = 0
+            for future in concurrent.futures.as_completed(future_to_post):
+                completed += 1
+                idx, url = future_to_post[future]
+                print(f"\rProcessed {completed}/{len(post_urls)} posts...", end='', flush=True)
+                
+                try:
+                    result = future.result()
+                    if result:
+                        posts_data.append(result)
+                except Exception as e:
+                    logger.error(f"Error getting result for post {idx}: {e}")
+        
+        print()  # New line after progress
+        print()  # New line after progress
+        
         total_images = sum(len(p['images']) for p in posts_data)
         
         logger.info(f"Found {total_images} images across {len(posts_data)} posts")
