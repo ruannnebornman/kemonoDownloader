@@ -27,9 +27,10 @@ async def async_main(args):
     print("="*60)
     print("Kemono Downloader")
     print("="*60)
+    print(f"Service: {args.service}")
     print(f"User ID: {args.user_id}")
     print(f"Output: {args.output}")
-    logger.info(f"Starting download for user {args.user_id}")
+    logger.info(f"Starting download for {args.service}/user/{args.user_id}")
     
     # Update config if needed
     if args.no_skip_existing:
@@ -50,7 +51,7 @@ async def async_main(args):
         print("\n" + "="*60)
         print("PHASE 1: Fetching post URLs")
         print("="*60 + "\n")
-        post_urls = scraper.get_user_posts(args.user_id)
+        post_urls = scraper.get_user_posts(args.user_id, args.service)
         
         if not post_urls:
             logger.error("No posts found for this user")
@@ -171,8 +172,16 @@ def main():
     )
     parser.add_argument(
         '--user-id',
-        required=True,
         help='User ID from Kemono.cr (e.g., 167293545)'
+    )
+    parser.add_argument(
+        '--url',
+        help='Full Kemono.cr user URL (e.g., https://kemono.cr/patreon/user/167293545)'
+    )
+    parser.add_argument(
+        '--service',
+        default='patreon',
+        help='Service type (patreon, fanbox, etc.) - auto-detected from URL if provided'
     )
     parser.add_argument(
         '--output',
@@ -208,6 +217,23 @@ def main():
     )
     
     args = parser.parse_args()
+    
+    # Parse URL if provided
+    if args.url:
+        import re
+        # Extract service and user_id from URL
+        # Format: https://kemono.cr/{service}/user/{user_id}
+        match = re.search(r'kemono\.cr/([^/]+)/user/([^/?]+)', args.url)
+        if match:
+            args.service = match.group(1)
+            args.user_id = match.group(2)
+        else:
+            print("Error: Invalid Kemono.cr URL format")
+            print("Expected format: https://kemono.cr/{service}/user/{user_id}")
+            sys.exit(1)
+    elif not args.user_id:
+        print("Error: Either --url or --user-id must be provided")
+        sys.exit(1)
     
     # Setup logging - default to ERROR unless verbose or log-level specified
     if args.log_level:

@@ -50,12 +50,13 @@ class KemonoSeleniumScraper:
             logger.info("Make sure Chrome/Chromium and chromedriver are installed")
             raise
     
-    def get_user_posts(self, user_id: str) -> List[str]:
+    def get_user_posts(self, user_id: str, service: str = 'patreon') -> List[str]:
         """
         Get all post URLs for a user
         
         Args:
             user_id: User ID from Kemono
+            service: Service type (patreon, fanbox, etc.)
             
         Returns:
             List of post URLs
@@ -65,7 +66,7 @@ class KemonoSeleniumScraper:
         page = 1
         
         while True:
-            url = f"{self.base_url}/patreon/user/{user_id}"
+            url = f"{self.base_url}/{service}/user/{user_id}"
             if offset > 0:
                 url += f"?o={offset}"
             
