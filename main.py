@@ -63,9 +63,9 @@ async def async_main(args):
             logger.info(f"Limiting to first {args.max_posts} posts")
             post_urls = post_urls[:args.max_posts]
         
-        # Phase 2: Extract images from all posts concurrently (in batches)
+        # Phase 2: Extract media from all posts concurrently (in batches)
         print("\n" + "="*60)
-        print("PHASE 2: Extracting images from posts")
+        print("PHASE 2: Extracting media from posts")
         print("="*60 + "\n")
         
         from concurrent.futures import ThreadPoolExecutor
@@ -82,7 +82,7 @@ async def async_main(args):
             return thread_local.scraper
         
         def process_post_sync(idx, post_url):
-            """Process a single post to extract images (runs in thread)"""
+            """Process a single post to extract media (runs in thread)"""
             try:
                 thread_scraper = get_thread_scraper()
                 post_info = thread_scraper.get_post_info(post_url)
@@ -106,7 +106,7 @@ async def async_main(args):
                     pass
         
         # Process posts in parallel using thread pool (5 threads for stability)
-        print(f"\nExtracting images from {len(post_urls)} posts (5 threads)...")
+        print(f"\nExtracting media from {len(post_urls)} posts (5 threads)...")
         posts_data = []
         
         with ThreadPoolExecutor(max_workers=5, initializer=lambda: None) as executor:
@@ -132,16 +132,16 @@ async def async_main(args):
         
         print()  # New line after progress
         
-        total_images = sum(len(p['images']) for p in posts_data)
-        print(f"Found {total_images} images across {len(posts_data)} posts")
+        total_files = sum(len(p['images']) for p in posts_data)
+        print(f"Found {total_files} files across {len(posts_data)} posts")
         
-        if total_images == 0:
-            logger.warning("No images found to download")
+        if total_files == 0:
+            logger.warning("No files found to download")
             return
         
-        # Phase 3: Download all images
+        # Phase 3: Download all files
         print("\n" + "="*60)
-        print("PHASE 3: Downloading images")
+        print("PHASE 3: Downloading files")
         print("="*60 + "\n")
         
         total_downloaded = await downloader.download_user_images(args.user_id, posts_data)

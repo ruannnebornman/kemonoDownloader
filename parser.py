@@ -57,29 +57,42 @@ class KemonoParser:
     
     def parse_post_images(self, html: str) -> List[str]:
         """
-        Extract all image URLs from post page
+        Extract all media URLs (images, videos, archives) from post page
         
         Args:
             html: HTML content of post page
             
         Returns:
-            List of image URLs
+            List of media URLs (images, videos, zips, etc.)
         """
         soup = BeautifulSoup(html, 'lxml')
-        image_urls = []
+        media_urls = []
         
-        # Find all links that contain /data/ in href (full-resolution images)
+        # Find all links that contain /data/ in href (full-resolution media)
         # These are the actual download links, not thumbnails
         data_links = soup.find_all('a', href=re.compile(r'/data/'))
         
         for link in data_links:
             href = link.get('href')
-            if href and self._is_image_url(href):
+            if href and self._is_media_url(href):
                 # URLs are already full URLs starting with https://n1.kemono.cr, etc.
-                if href not in image_urls:
-                    image_urls.append(href)
+                if href not in media_urls:
+                    media_urls.append(href)
         
-        return image_urls
+        return media_urls
+    
+    def _is_media_url(self, url: str) -> bool:
+        """Check if URL points to a media file (image, video, or archive)"""
+        media_extensions = [
+            # Images
+            '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg',
+            # Videos
+            '.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v',
+            # Archives (may contain videos/images)
+            '.zip', '.rar', '.7z'
+        ]
+        url_lower = url.lower()
+        return any(ext in url_lower for ext in media_extensions)
     
     def _is_content_image(self, url: str) -> bool:
         """Check if URL is a content image (not icon/avatar/thumbnail)"""

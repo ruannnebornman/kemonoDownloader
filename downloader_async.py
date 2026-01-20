@@ -1,4 +1,4 @@
-"""Async image download functionality with proper rate limiting"""
+"""Async media download functionality with proper rate limiting"""
 
 import os
 import asyncio
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class AsyncImageDownloader:
-    """Async download and save images from URLs with rate limiting"""
+    """Async download and save media files (images, videos, archives) from URLs with rate limiting"""
     
     def __init__(self, output_dir: str = DOWNLOAD_DIR):
         self.output_dir = output_dir
@@ -40,14 +40,14 @@ class AsyncImageDownloader:
     
     async def download_user_images(self, user_id: str, posts_data: List[Dict]) -> Dict:
         """
-        Download all images for a user's posts
+        Download all media files for a user's posts
         
         Args:
             user_id: User ID
             posts_data: List of dicts with 'post_id' and 'images' keys
             
         Returns:
-            Statistics dictionary
+            Count of downloaded files
         """
         user_dir = os.path.join(self.output_dir, f"user_{user_id}")
         create_directory(user_dir)
@@ -97,7 +97,7 @@ class AsyncImageDownloader:
         """
         total = len(tasks)
         
-        with tqdm(total=total, desc="Downloading images", unit="img") as pbar:
+        with tqdm(total=total, desc="Downloading files", unit="file") as pbar:
             for i in range(0, total, BATCH_SIZE):
                 batch = tasks[i:i + BATCH_SIZE]
                 
@@ -115,7 +115,7 @@ class AsyncImageDownloader:
     async def download_image(self, session: aiohttp.ClientSession, url: str, 
                             save_dir: str, index: int) -> bool:
         """
-        Download a single image
+        Download a single file (image, video, archive, etc.)
         
         Args:
             session: aiohttp session
