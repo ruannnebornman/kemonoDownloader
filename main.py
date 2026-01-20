@@ -62,40 +62,46 @@ async def async_main(args):
             logger.info(f"Limiting to first {args.max_posts} posts")
             post_urls = post_urls[:args.max_posts]
         
-        # Process posts one at a time: extract images → download → next post
+        # Phase 2: Extract images from all posts concurrently
         logger.info("\n" + "="*60)
-        logger.info("PHASE 2: Processing posts sequentially")
+        logger.info("PHASE 2: Extracting images from posts (concurrent)")
         logger.info("="*60)
         
-        total_downloaded = 0
-        for idx, post_url in enumerate(post_urls, 1):
-            logger.info(f"\n--- Processing post {idx}/{len(post_urls)} ---")
-            print(f"\nPost {idx}/{len(post_urls)}: {post_url}")
-            
-            # Get post info and images
+        async def process_post(idx, post_url):
+            """Process a single post to extract images"""
+            logger.info(f"Processing post {idx}/{len(post_urls)}: {post_url}")
             post_info = scraper.get_post_info(post_url)
             images = scraper.get_post_images(post_url)
             
-            if not images:
-                logger.info(f"No images found in post {post_info['id']}")
-                print(f"  No images found, skipping...")
-                continue
-            
-            logger.info(f"Found {len(images)} images in post {post_info['id']}")
-            print(f"  Found {len(images)} images, downloading...")
-            
-            # Download images for this post
-            posts_data = [{
-                'post_id': post_info['id'],
-                'images': images
-            }]
-            
-            downloaded = await downloader.download_user_images(args.user_id, posts_data)
-            total_downloaded += downloaded
-            
-            logger.info(f"Downloaded {downloaded} images from post {post_info['id']}")
-            print(f"  Downloaded {downloaded} images")
+            if images:
+                return {
+                    'post_id': post_info['id'],
+                    'images': images
+                }
+            return None
         
+        # Process posts concurrently
+        print(f"\nExtracting images from {len(post_urls)} posts concurrently...")
+        tasks = [process_post(idx, url) for idx, url in enumerate(post_urls, 1)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Filter out None and exceptions
+        posts_data = [r for r in results if r and not isinstance(r, Exception)]
+        total_images = sum(len(p['images']) for p in posts_data)
+        
+        logger.info(f"Found {total_images} images across {len(posts_data)} posts")
+        print(f"Found {total_images} images across {len(posts_data)} posts")
+        
+        if total_images == 0:
+            logger.warning("No images found to download")
+            return
+        
+        # Phase 3: Download all images
+        logger.info("\n" + "="*60)
+        logger.info("PHASE 3: Downloading images (async with rate limiting)")
+        logger.info("="*60)
+        
+        total_downloaded = await downloader.download_user_images(args.user_id, posts_data)
         logger.info(f"\nTotal images downloaded: {total_downloaded}")
         
         # Print summary

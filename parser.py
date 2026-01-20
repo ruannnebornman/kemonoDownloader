@@ -135,20 +135,30 @@ class KemonoParser:
         Returns:
             Next offset or None if no more pages
         """
-        # Kemono typically uses ?o=0, ?o=25, ?o=50, etc.
-        # Check if there are more posts to load
         soup = BeautifulSoup(html, 'lxml')
         
-        # If we find a "next" link with offset parameter
-        next_link = soup.find('a', href=re.compile(r'\?o=\d+'))
-        if next_link:
-            match = re.search(r'\?o=(\d+)', next_link['href'])
+        # Look for the ">" (next) button which has the next offset
+        next_button = soup.find('a', string='>')
+        if next_button and next_button.get('href'):
+            match = re.search(r'\?o=(\d+)', next_button['href'])
             if match:
-                return int(match.group(1))
+                next_offset = int(match.group(1))
+                # Only return if it's actually advancing
+                if next_offset > current_offset:
+                    return next_offset
         
-        # Otherwise, check if page has posts (assume 25 per page)
-        posts = soup.find_all('a', href=re.compile(r'/post/\d+'))
-        if len(posts) >= 25:
-            return current_offset + 25
+        # Fallback: look for any pagination link with higher offset
+        all_links = soup.find_all('a', href=re.compile(r'\?o=\d+'))
+        max_offset = current_offset
+        for link in all_links:
+            match = re.search(r'\?o=(\d+)', link['href'])
+            if match:
+                offset = int(match.group(1))
+                if offset > max_offset:
+                    max_offset = offset
+        
+        if max_offset > current_offset:
+            return current_offset + 50  # Kemono shows 50 posts per page
         
         return None
+
